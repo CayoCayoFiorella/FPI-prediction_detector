@@ -1,0 +1,107 @@
+# Configuración del experimento OSIC FPI Prediction
+# Proyecto: Predicción de progresión de Fibrosis Pulmonar Idiopática
+
+experiment:
+  name: "osic-fpi-multimodal-v1"
+  description: "Modelo multimodal CNN3D + datos clínicos"
+  seed: 42
+  device: "cpu"  # Cambiar a "cuda" si tienes GPU
+
+# Rutas de datos
+data:
+  csv_train: "data/raw/train.csv"
+  csv_test: "data/raw/test.csv"
+  dicom_root_train: "data/raw/train"
+  dicom_root_test: "data/raw/test"
+  cache_dir: "data/processed/cache"
+  use_cache: true
+
+# Preprocesamiento
+preprocessing:
+  target_spacing: [1.5, 1.5, 1.5]  # mm (Z, Y, X)
+  target_size: [64, 256, 256]  # voxels (D, H, W)
+  lung_window: [-1000, 400]  # HU range
+  clip_range: [-1000, 400]  # HU clipping
+  normalize: true
+
+# Arquitectura del modelo
+model:
+  type: "multimodal"  # "multimodal" o "clinical_only"
+  
+  # Dimensiones
+  img_feature_dim: 128
+  clinical_embedding_dim: 32
+  fusion_hidden_dims: [256, 128]
+  
+  # Usar CNN ligera (recomendado para CPU)
+  use_lightweight_cnn: true
+
+# Entrenamiento
+training:
+  batch_size: 2  # Reducir si hay problemas de memoria
+  num_epochs: 50
+  learning_rate: 0.0001
+  weight_decay: 0.0001
+  
+  # Optimizador
+  optimizer: "adamw"  # "adam", "adamw", "sgd"
+  
+  # Scheduler
+  scheduler:
+    type: "reduce_on_plateau"  # "cosine", "step", "reduce_on_plateau"
+    patience: 5
+    factor: 0.5
+    min_lr: 0.000001
+  
+  # Early stopping
+  early_stopping:
+    enabled: true
+    patience: 10
+    min_delta: 0.001
+  
+  # Loss function
+  loss: "mse"  # "mse", "mae", "huber"
+
+# Validación
+validation:
+  val_split: 0.2  # Porcentaje de datos para validación
+  k_folds: 5  # Para cross-validation (0 = no usar CV)
+  stratify_by: null  # "Sex", "SmokingStatus", null
+  
+# Métricas
+metrics:
+  - "mae"
+  - "rmse"
+  - "r2"
+  - "mape"
+
+# Checkpointing
+checkpoint:
+  save_dir: "checkpoints"
+  save_best_only: true
+  monitor: "val_mae"  # Métrica a monitorear
+  mode: "min"  # "min" o "max"
+
+# Logging
+logging:
+  use_mlflow: true
+  mlflow_uri: "mlruns"
+  log_every_n_steps: 10
+  
+  use_tensorboard: false
+  tensorboard_dir: "runs"
+
+# Reproducibilidad
+reproducibility:
+  deterministic: true
+  benchmark: false
+
+# Recursos computacionales
+resources:
+  num_workers: 0  # Para DataLoader (0 = main thread, evita problemas en Windows)
+  pin_memory: false  # true si usas GPU
+  
+# Inference
+inference:
+  batch_size: 1
+  output_dir: "predictions"

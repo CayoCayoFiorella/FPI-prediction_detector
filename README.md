@@ -8,6 +8,13 @@ Este proyecto entrena un modelo multimodal para la predicción de progresión de
 - MLflow
 - Pylibjpeg / Pydicom
 
+### Generar `requirements.txt`
+Para guardar las dependencias actuales del entorno virtual:
+
+```bash
+pip freeze > requirements.txt
+```
+
 ## Ejecución
 ```bash
 # Limpiar cache
@@ -18,3 +25,4 @@ python src/training/train.py --config experiments/configs/config.yaml
 ```
 ## Dataset
 https://www.kaggle.com/competitions/osic-pulmonary-fibrosis-progression/data
+

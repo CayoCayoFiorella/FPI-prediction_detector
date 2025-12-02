@@ -79,7 +79,7 @@ metrics:
 checkpoint:
   save_dir: "checkpoints"
   save_best_only: true
-  monitor: "val_mae"  # Métrica a monitorear
+  monitor: "mae"  # Métrica a monitorear
   mode: "min"  # "min" o "max"
 
 # Logging

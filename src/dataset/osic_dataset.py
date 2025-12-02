@@ -3,6 +3,8 @@ Dataset PyTorch para datos multimodales OSIC:
 - Imágenes CT (DICOM)
 - Datos clínicos tabulares
 - Target: FVC (Forced Vital Capacity)
+
+VERSIÓN CORREGIDA: Incluye método de desnormalización
 """
 
 import os
@@ -74,11 +76,53 @@ class OSICDataset(Dataset):
         smoking_dummies = pd.get_dummies(self.df['SmokingStatus'], prefix='Smoking')
         self.df = pd.concat([self.df, smoking_dummies], axis=1)
         
+        # 🔧 NUEVO: Guardar estadísticas de FVC para desnormalización
+        self.fvc_mean = self.df['FVC'].mean()
+        self.fvc_std = self.df['FVC'].std()
+        self.fvc_min = self.df['FVC'].min()
+        self.fvc_max = self.df['FVC'].max()
+        
+        print(f"📊 Estadísticas FVC: mean={self.fvc_mean:.0f}, std={self.fvc_std:.0f}, min={self.fvc_min:.0f}, max={self.fvc_max:.0f}")
+        
         # Normalizar variables numéricas
         self.df['Age_norm'] = self.df['Age'] / 100.0
         self.df['Weeks_norm'] = self.df['Weeks'] / 100.0
         self.df['FVC_norm'] = self.df['FVC'] / 5000.0
         self.df['Percent_norm'] = self.df['Percent'] / 100.0
+    
+    def denormalize_fvc(self, fvc_normalized):
+        """
+        🔧 NUEVO MÉTODO: Desnormaliza predicciones de FVC.
+        
+        Args:
+            fvc_normalized: Valores normalizados (rango 0-1) como tensor o numpy array
+        
+        Returns:
+            Valores originales en ml
+        """
+        if isinstance(fvc_normalized, torch.Tensor):
+            return fvc_normalized * 5000.0
+        elif isinstance(fvc_normalized, np.ndarray):
+            return fvc_normalized * 5000.0
+        else:
+            return fvc_normalized * 5000.0
+    
+    def normalize_fvc(self, fvc_ml):
+        """
+        Normaliza valores de FVC (útil para inference).
+        
+        Args:
+            fvc_ml: Valores en ml
+        
+        Returns:
+            Valores normalizados (0-1 range)
+        """
+        if isinstance(fvc_ml, torch.Tensor):
+            return fvc_ml / 5000.0
+        elif isinstance(fvc_ml, np.ndarray):
+            return fvc_ml / 5000.0
+        else:
+            return fvc_ml / 5000.0
     
     def __len__(self) -> int:
         return len(self.df)
@@ -152,7 +196,7 @@ class OSICDataset(Dataset):
             image: Tensor (1, D, H, W) - volumen CT
             clinical: Tensor (n_features,) - datos clínicos
             weeks: Tensor (1,) - semanas de seguimiento
-            target: Tensor (1,) - FVC objetivo
+            target: Tensor (1,) - FVC objetivo (SIN NORMALIZAR - en ml)
         """
         row = self.df.iloc[idx]
         
@@ -182,7 +226,8 @@ class OSICDataset(Dataset):
         # Weeks
         weeks = torch.tensor([row['Weeks_norm']], dtype=torch.float32)
         
-        # Target - asegurar shape consistente
+        # 🔧 CAMBIO IMPORTANTE: Target SIN normalizar (valores reales en ml)
+        # El modelo debe predecir valores reales, no normalizados
         target = torch.tensor(row['FVC'], dtype=torch.float32)
         
         return image, clinical, weeks, target
@@ -205,7 +250,17 @@ def test_dataset():
     print(f"\n🖼️ Image shape: {image.shape}")
     print(f"🩺 Clinical features shape: {clinical.shape}")
     print(f"📅 Weeks: {weeks.item():.3f}")
-    print(f"🎯 Target FVC: {target.item():.1f}")
+    print(f"🎯 Target FVC: {target.item():.1f} ml (sin normalizar)")
+    
+    # 🔧 Test de desnormalización
+    print(f"\n🧪 Test de normalización/desnormalización:")
+    fvc_original = 2500.0
+    fvc_norm = dataset.normalize_fvc(fvc_original)
+    fvc_denorm = dataset.denormalize_fvc(fvc_norm)
+    print(f"   Original: {fvc_original:.1f} ml")
+    print(f"   Normalizado: {fvc_norm:.4f}")
+    print(f"   Desnormalizado: {fvc_denorm:.1f} ml")
+    print(f"   ✅ Match: {abs(fvc_original - fvc_denorm) < 0.01}")
     
     # Probar DataLoader
     loader = DataLoader(dataset, batch_size=2, shuffle=False, num_workers=0)
@@ -216,6 +271,7 @@ def test_dataset():
     print(f"  Clinical: {batch[1].shape}")
     print(f"  Weeks: {batch[2].shape}")
     print(f"  Targets: {batch[3].shape}")
+    print(f"  Target values (ml): {batch[3].numpy()}")
 
 
 if __name__ == "__main__":

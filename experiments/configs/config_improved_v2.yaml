@@ -1,0 +1,80 @@
+# Configuracion MEJORADA v2
+experiment:
+  name: "osic-fpi-multimodal-v2-improved"
+  description: "Modelo mejorado - Mas capacidad y epocas"
+  seed: 42
+  device: "cpu"
+
+data:
+  csv_train: "data/raw/train.csv"
+  csv_test: "data/raw/test.csv"
+  dicom_root_train: "data/raw/train"
+  dicom_root_test: "data/raw/test"
+  cache_dir: "data/processed/cache"
+  use_cache: true
+
+preprocessing:
+  target_spacing: [1.5, 1.5, 1.5]
+  target_size: [64, 256, 256]
+  lung_window: [-1000, 400]
+  clip_range: [-1000, 400]
+  normalize: true
+
+model:
+  type: "multimodal"
+  img_feature_dim: 256
+  clinical_embedding_dim: 64
+  fusion_hidden_dims: [512, 256, 128]
+  use_lightweight_cnn: false
+
+training:
+  batch_size: 2
+  num_epochs: 100
+  learning_rate: 0.00005
+  weight_decay: 0.0001
+  optimizer: "adamw"
+  scheduler:
+    type: "cosine"
+    T_max: 100
+    min_lr: 0.000001
+  early_stopping:
+    enabled: true
+    patience: 15
+    min_delta: 0.001
+  loss: "mse"
+
+validation:
+  val_split: 0.2
+  k_folds: 0
+  stratify_by: null
+
+metrics:
+  - "mae"
+  - "rmse"
+  - "r2"
+  - "mape"
+
+checkpoint:
+  save_dir: "checkpoints_v2"
+  save_best_only: true
+  monitor: "val_mae"
+  mode: "min"
+
+logging:
+  use_mlflow: true
+  mlflow_uri: "mlruns"
+  log_every_n_steps: 10
+  use_tensorboard: false
+  tensorboard_dir: "runs"
+
+reproducibility:
+  deterministic: true
+  benchmark: false
+
+resources:
+  num_workers: 0
+  pin_memory: false
+
+inference:
+  batch_size: 1
+  output_dir: "predictions_v2"
